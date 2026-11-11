@@ -28,22 +28,24 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 
 ## Implementation decisions
 
-Record your plan here before editing code.
+Keep implementation aligned with these tier responsibilities and contracts.
 
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+- Presentation tier decision: Keep the existing React Router pages and shared `getJson` API client. Each capability component owns its loading, empty, error, and successful-data presentation; API/business rules and persistence stay out of the UI.
+- Logic tier decision: Keep Express route handlers thin and delegate capability behavior to `services/octofitService.ts`. Return deliberate 4xx responses for invalid input, malformed or missing references, and unknown users rather than exposing cast or validation failures as 500s.
+- Data tier decision: Express persistence requirements in Mongoose schemas, including required fields, references, and appropriate defaults. Keep seeding idempotent and preserve unrelated existing records.
+- Activity tracking approach: Validate the requested user and team IDs and confirm both records exist before creating an activity. Persist the associated user/team, type, and minutes, with points and occurrence time computed by the server; list persisted activities through the API.
+- Team management approach: Require a name, preserve the submitted name and mascot, and default omitted members to an empty array. Create and list teams through the service and return their member references to the presentation tier.
+- Leaderboard approach: Aggregate activity points by team, sort totals descending, and assign ranks starting at 1; return the team name and total with each rank.
+- Workout suggestions approach: Resolve the requested email to a user, then use that user's goal and recent activity to select matching workout suggestions. Include a human-readable reason for the first suggestion and return a deliberate 4xx when the user is unknown.
+
+Implement in dependency order: data schemas and seed invariants first, service/API behavior second, and presentation integration and states third. Keep each step scoped to its contract tests before moving to the next tier.
 
 ## Test plan
 
-Record the commands you run and what each failure means.
+Baseline results below were recorded before implementation changes. Use these commands after each relevant tier change; a passing build checks compilation/bundling, while the contract suites check behavior.
 
-- Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
-- API command: `npm run test:api --prefix octofit-tracker/backend`
-- Frontend command: `npm test --prefix octofit-tracker/frontend`
-- Backend build command: `npm run build --prefix octofit-tracker/backend`
-- Frontend build command: `npm run build --prefix octofit-tracker/frontend`
+- Data tier: `npm run test:data --prefix octofit-tracker/backend` - baseline fails 4 of 5 tests because required User, Team, Activity, and Workout schema constraints are missing or incomplete. The seed idempotency test passes; keep it passing while fixing schema validation.
+- Logic/API tier: `npm run test:api --prefix octofit-tracker/backend` - baseline fails all 4 tests: invalid activity/team input receives 501 rather than a 4xx validation response, the leaderboard is empty, and workout suggestions omit the required reason. These failures identify unfinished service behavior and response contracts.
+- Presentation tier: `npm test --prefix octofit-tracker/frontend` - baseline fails all 15 tests across the four views. Data rendering, user-specific workout requests, loading states, empty states, and accessible API error states are not implemented; the views currently show an implementation-pending state.
+- Backend build: `npm run build --prefix octofit-tracker/backend` - passes at baseline. A failure indicates a TypeScript compile/type error in the backend.
+- Frontend build: `npm run build --prefix octofit-tracker/frontend` - passes at baseline. A failure indicates a TypeScript or Vite production-bundle error.
